@@ -28,9 +28,93 @@
     .bg-pattern {
       background: linear-gradient(to right, #eaf4fc, #e6f4ea);
     }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 100;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 700px;
+      max-height: 80vh;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .policy-content {
+      overflow-y: auto;
+      padding-right: 10px;
+      flex-grow: 1;
+    }
+    /* Scrollbar styling */
+    .policy-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    .policy-content::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .policy-content::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+    .policy-content::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
   </style>
 </head>
 <body class="font-sans bg-pattern min-h-screen p-4">
+  <!-- Disclaimer Modal -->
+  <div id="disclaimerModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">QuickBill User Policy</h2>
+        <button id="closeModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      
+      <div class="policy-content prose">
+        <p class="text-xs text-gray-500 mb-4">Last updated: 17th July 2025</p>
+        
+        <h3 class="font-semibold mt-4 text-base">Purpose:</h3>
+        <p class="text-sm">QuickBill is a simple tool for generating informal invoices, quotations, and related documents. It is designed to assist small business owners, freelancers, and hustlers with daily business communications.</p>
+        
+        <h3 class="font-semibold mt-4 text-base">Not a Financial or Tax Platform:</h3>
+        <p class="text-sm">QuickBill is not affiliated with KRA, any government agency, or tax authority. It is not an official accounting system and should not be used as a replacement for professional tax or legal services.</p>
+        
+        <h3 class="font-semibold mt-4 text-base">No Storage of Sensitive Data:</h3>
+        <p class="text-sm">We do not store your financial records or personal data. All information entered is processed on your device and deleted on refresh unless explicitly saved by the user.</p>
+        
+        <h3 class="font-semibold mt-4 text-base">Use at Your Own Risk:</h3>
+        <p class="text-sm">While we aim for simplicity and accuracy, QuickBill is provided "as-is." Users are fully responsible for how they use generated documents.</p>
+        
+        <h3 class="font-semibold mt-4 text-base">Respect Local Laws:</h3>
+        <p class="text-sm">Users must ensure that their use of this tool complies with local business and tax regulations.</p>
+        
+        <h3 class="font-semibold mt-4 text-base">Feedback Welcome:</h3>
+        <p class="text-sm">If you have suggestions, questions, or want to report misuse — contact: <span class="text-blue-600">QuickSoftwares Kenya</span></p>
+        
+        <div class="mt-6 p-3 bg-yellow-50 border-l-4 border-yellow-400">
+          <p class="font-semibold text-red-600 text-sm">* Documents generated are for informal use only. Not for tax or legal submission.</p>
+        </div>
+      </div>
+      
+      <button id="acceptDisclaimer" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">
+        I Understand & Accept
+      </button>
+    </div>
+  </div>
+
+  <!-- Main App -->
   <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
     <h1 class="text-2xl font-bold mb-4 text-center">Quick Bill - Invoice Maker</h1>
 
@@ -69,6 +153,10 @@
     <div class="mt-6">
       <h2 class="text-xl font-semibold mb-2">Invoice Preview</h2>
       <div id="invoiceOutput" class="bg-softblue p-4 rounded border text-sm md:text-base overflow-x-auto">
+        <div class="text-xs text-red-600 italic mb-2">
+          * Documents generated are for informal use only. Not for tax or legal submission.
+          <a href="#" id="disclaimerLink" class="text-blue-600 underline">Read full policy</a>
+        </div>
         <table id="invoiceTable" class="w-full border-collapse">
           <thead>
             <tr class="bg-gray-200">
@@ -96,6 +184,52 @@
   </div>
 
   <script>
+    // Modal functionality
+    const modal = document.getElementById("disclaimerModal");
+    const disclaimerLink = document.getElementById("disclaimerLink");
+    const closeModal = document.getElementById("closeModal");
+    const acceptDisclaimer = document.getElementById("acceptDisclaimer");
+
+    // Show modal when disclaimer link is clicked
+    disclaimerLink.addEventListener("click", function(e) {
+      e.preventDefault();
+      modal.style.display = "block";
+      document.body.style.overflow = "hidden"; // Prevent background scrolling
+    });
+
+    // Close modal when X is clicked
+    closeModal.addEventListener("click", function() {
+      modal.style.display = "none";
+      document.body.style.overflow = "auto";
+    });
+
+    // Close modal when "I Understand" is clicked
+    acceptDisclaimer.addEventListener("click", function() {
+      modal.style.display = "none";
+      document.body.style.overflow = "auto";
+      
+      // Optional: Store acceptance in localStorage
+      localStorage.setItem('quickbill-policy-accepted', 'true');
+    });
+
+    // Close modal when clicking outside the modal content
+    window.addEventListener("click", function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+        document.body.style.overflow = "auto";
+      }
+    });
+
+    // Optional: Check if policy was previously accepted
+    window.addEventListener('load', function() {
+      if (!localStorage.getItem('quickbill-policy-accepted')) {
+        // Uncomment to auto-show on first visit
+        // modal.style.display = "block";
+        // document.body.style.overflow = "hidden";
+      }
+    });
+
+    // Rest of your existing JavaScript code...
     let items = [];
 
     function addItem() {
