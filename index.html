@@ -2,115 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quick Bill</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickBill Invoice Generator</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 1em; }
-    table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }
-    input { width: 100px; }
-    .btn { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    body {
+      background-color: #e6f0ff;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    input, textarea, select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .section {
+      margin-top: 20px;
+    }
+    #invoicePreview {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px dashed #666;
+      background: #f9f9f9;
+    }
+    #logoPreview img {
+      max-width: 150px;
+    }
+    .btn {
+      padding: 10px 15px;
+      margin-right: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-secondary {
+      background-color: #28a745;
+    }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>QuickBill Invoice Generator</h1>
+    <div class="section">
+      <h3>Business Details</h3>
+      <input type="text" id="bizName" placeholder="Business Name">
+      <input type="text" id="kraPin" placeholder="KRA PIN (Optional)">
+      <input type="file" id="logoUpload">
+      <div id="logoPreview"></div>
+    </div>
 
-  <h1>Quick Bill - Invoice Generator</h1>
-  
-  <table id="invoiceTable">
-    <thead>
-      <tr>
-        <th>Item</th><th>Qty</th><th>Price</th><th>Total</th>
-      </tr>
-    </thead>
-    <tbody id="invoiceBody">
-      <tr>
-        <td><input type="text" value="Item 1" /></td>
-        <td><input type="number" value="1" /></td>
-        <td><input type="number" value="100" /></td>
-        <td class="item-total">100</td>
-      </tr>
-    </tbody>
-  </table>
-  
-  <button class="btn" onclick="addRow()">+ Add Item</button>
-  
-  <h3>Tax (%): <input id="taxInput" type="number" value="16" /></h3>
-  
-  <h3>Subtotal: <span id="subtotal">0</span></h3>
-  <h3>Total (with tax): <span id="totalWithTax">0</span></h3>
-  
-  <button class="btn" onclick="calculateTotals()">Recalculate</button>
-  <button class="btn" onclick="downloadExcel()">Download Excel</button>
-  <button class="btn" onclick="downloadPDF()">Download PDF</button>
+    <div class="section">
+      <h3>Customer Details</h3>
+      <input type="text" id="custName" placeholder="Customer Name">
+      <input type="text" id="custEmail" placeholder="Customer Email">
+      <input type="text" id="custPhone" placeholder="Customer Phone">
+    </div>
+
+    <div class="section">
+      <h3>Invoice Items</h3>
+      <textarea id="items" placeholder="Item name, quantity, unit price\nExample:\nApples,2,100\nBananas,5,60"></textarea>
+      <input type="number" id="taxRate" placeholder="Tax Rate (e.g. 16 for 16%)">
+      <button class="btn" onclick="generateInvoice()">Preview Invoice</button>
+    </div>
+
+    <div id="invoicePreview"></div>
+
+    <div class="section">
+      <button class="btn" onclick="exportExcel()">Download Excel (Free)</button>
+      <button class="btn btn-secondary" onclick="exportPDF()">Download PDF (Premium Only)</button>
+    </div>
+  </div>
 
   <script>
-    function addRow() {
-      const table = document.getElementById("invoiceBody");
-      const row = table.insertRow();
-      row.innerHTML = `
-        <td><input type="text" /></td>
-        <td><input type="number" value="1" /></td>
-        <td><input type="number" value="0" /></td>
-        <td class="item-total">0</td>
-      `;
-    }
+    let logoData = '';
+    document.getElementById('logoUpload').addEventListener('change', function(e) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        logoData = e.target.result;
+        document.getElementById('logoPreview').innerHTML = `<img src="${logoData}" alt="Logo">`;
+      }
+      reader.readAsDataURL(e.target.files[0]);
+    });
 
-    function calculateTotals() {
-      const rows = document.querySelectorAll("#invoiceBody tr");
+    function generateInvoice() {
+      const items = document.getElementById('items').value.trim().split('\n');
+      const tax = parseFloat(document.getElementById('taxRate').value) || 0;
+      let html = `<div>${logoData ? `<img src='${logoData}' alt='Logo'><br>` : ''}`;
+      html += `<strong>${document.getElementById('bizName').value}</strong><br>`;
+      html += `KRA PIN: ${document.getElementById('kraPin').value}<br><br>`;
+
+      html += `<strong>Bill To:</strong><br>${document.getElementById('custName').value}<br>${document.getElementById('custEmail').value}<br>${document.getElementById('custPhone').value}<br><br>`;
+
+      html += `<table border='1' width='100%' cellpadding='5'><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr>`;
       let subtotal = 0;
-      rows.forEach(row => {
-        const qty = parseFloat(row.cells[1].querySelector("input").value) || 0;
-        const price = parseFloat(row.cells[2].querySelector("input").value) || 0;
-        const total = qty * price;
-        row.cells[3].textContent = total.toFixed(2);
-        subtotal += total;
+      items.forEach(row => {
+        const [item, qty, price] = row.split(',');
+        const lineTotal = parseFloat(qty) * parseFloat(price);
+        subtotal += lineTotal;
+        html += `<tr><td>${item}</td><td>${qty}</td><td>${price}</td><td>${lineTotal}</td></tr>`;
       });
-
-      const taxRate = parseFloat(document.getElementById("taxInput").value) || 0;
-      const totalWithTax = subtotal + (subtotal * taxRate / 100);
-
-      document.getElementById("subtotal").textContent = subtotal.toFixed(2);
-      document.getElementById("totalWithTax").textContent = totalWithTax.toFixed(2);
+      const taxAmt = (subtotal * tax) / 100;
+      const total = subtotal + taxAmt;
+      html += `</table><br><strong>Subtotal:</strong> ${subtotal}<br><strong>Tax (${tax}%):</strong> ${taxAmt}<br><strong>Total:</strong> ${total}</div>`;
+      document.getElementById('invoicePreview').innerHTML = html;
     }
 
-    function downloadExcel() {
-      calculateTotals();
-      const wb = XLSX.utils.book_new();
-      const ws_data = [["Item", "Qty", "Price", "Total"]];
-      document.querySelectorAll("#invoiceBody tr").forEach(row => {
-        const item = row.cells[0].querySelector("input").value;
-        const qty = row.cells[1].querySelector("input").value;
-        const price = row.cells[2].querySelector("input").value;
-        const total = row.cells[3].textContent;
-        ws_data.push([item, qty, price, total]);
-      });
-      const subtotal = document.getElementById("subtotal").textContent;
-      const totalWithTax = document.getElementById("totalWithTax").textContent;
-      ws_data.push(["", "", "Subtotal", subtotal]);
-      ws_data.push(["", "", "Total (with Tax)", totalWithTax]);
-      const ws = XLSX.utils.aoa_to_sheet(ws_data);
-      XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-      XLSX.writeFile(wb, "QuickBill_Invoice.xlsx");
+    function exportExcel() {
+      alert("Excel export includes watermark and totals. Feature coming in .zip version.");
     }
 
-    async function downloadPDF() {
-      calculateTotals();
-      const pdf = new jspdf.jsPDF();
-      const invoiceArea = document.body;
-      await html2canvas(invoiceArea).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save("QuickBill_Invoice.pdf");
-      });
+    function exportPDF() {
+      alert("PDF export available for premium users only.");
     }
-
-    calculateTotals();
   </script>
-
 </body>
 </html>
