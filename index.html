@@ -71,6 +71,20 @@
     .policy-content::-webkit-scrollbar-thumb:hover {
       background: #555;
     }
+    /* Footer styles */
+    html, body {
+      height: 100%;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    .main-content {
+      flex: 1 0 auto;
+    }
+    .footer {
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body class="font-sans bg-pattern min-h-screen p-4">
@@ -115,7 +129,7 @@
   </div>
 
   <!-- Main App -->
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+  <div class="main-content max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
     <h1 class="text-2xl font-bold mb-4 text-center">Quick Bill - Invoice Maker</h1>
 
     <div class="space-y-4">
@@ -182,6 +196,11 @@
       </div>
     </div>
   </div>
+
+  <!-- Sticky Footer -->
+  <footer class="footer py-4 text-center text-xs text-gray-500">
+    &copy; 2025 QuickBill is independently developed and currently pending trademark registration. All rights reserved.
+  </footer>
 
   <script>
     // Modal functionality
