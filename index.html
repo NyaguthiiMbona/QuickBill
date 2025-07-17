@@ -1,181 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>QuickBill - Invoice Generator</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quick Bill - Invoice Maker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+          },
+          colors: {
+            softblue: '#eaf4fc',
+            softgreen: '#e6f4ea',
+            softyellow: '#fffbe6'
+          }
+        },
+      },
+      darkMode: 'class',
+    };
+  </script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #e6f0ff;
-      padding: 20px;
-      color: #333;
-    }
-    h1 {
-      color: #003366;
-    }
-    .invoice-container {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      max-width: 900px;
-      margin: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input, textarea {
-      padding: 8px;
-      width: 100%;
-      margin-top: 4px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    table {
-      width: 100%;
-      margin-top: 20px;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #aaa;
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background: #cce0ff;
-    }
-    .btn {
-      background: #007bff;
-      color: white;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 8px;
-      margin-top: 20px;
-      cursor: pointer;
-    }
-    .btn:hover {
-      background: #0056b3;
-    }
-    .totals {
-      margin-top: 20px;
-      text-align: right;
+    .bg-pattern {
+      background: linear-gradient(to right, #eaf4fc, #e6f4ea);
     }
   </style>
 </head>
-<body>
+<body class="font-sans bg-pattern min-h-screen p-4">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-4 text-center">Quick Bill - Invoice Maker</h1>
 
-<div class="invoice-container">
-  <h1>QuickBill Invoice Generator</h1>
+    <div class="space-y-4">
+      <input id="businessName" type="text" placeholder="Your Business Name" class="w-full border p-2 rounded" />
+      <input id="customerName" type="text" placeholder="Customer Name" class="w-full border p-2 rounded" />
+      <input id="customerContact" type="text" placeholder="Customer Contact" class="w-full border p-2 rounded" />
+      <input id="companyLogo" type="file" accept="image/*" class="w-full border p-2 rounded" disabled />
+    </div>
 
-  <label>Your Business Name</label>
-  <input id="businessName" placeholder="e.g. Sweet Treats Bakery">
+    <div class="mt-4">
+      <input id="invoiceNumber" type="text" placeholder="Invoice Number" class="w-full border p-2 rounded" />
+      <input id="invoiceDate" type="date" class="w-full border p-2 rounded" />
+    </div>
 
-  <label>Client Name</label>
-  <input id="clientName" placeholder="e.g. Sarah Wanjiku">
+    <div class="mt-4">
+      <label class="inline-flex items-center">
+        <input id="rememberToggle" type="checkbox" class="mr-2" /> Remember my invoice data
+      </label>
+      <label class="inline-flex items-center ml-6">
+        <input id="premiumToggle" type="checkbox" class="mr-2" /> I am a Premium User
+      </label>
+    </div>
 
-  <label>Client Contact / Notes</label>
-  <textarea id="clientNotes" rows="2" placeholder="e.g. Wedding on Aug 20th, contact 0722...."></textarea>
+    <div class="mt-6">
+      <h2 class="text-lg font-semibold mb-2">Add Items</h2>
+      <div id="itemsContainer" class="space-y-2"></div>
+      <button onclick="addItem()" class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600">+ Add Item</button>
+    </div>
 
-  <table id="itemsTable">
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th>Unit Price (KES)</th>
-        <th>Quantity</th>
-        <th>Total</th>
-        <th>Remove</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <div class="mt-6">
+      <label for="tax" class="block font-semibold">Tax (%)</label>
+      <input id="tax" type="number" class="w-full border p-2 rounded" placeholder="Leave blank if not applicable">
+    </div>
 
-  <button class="btn" onclick="addItem()">+ Add Item</button>
+    <div class="mt-6">
+      <h2 class="text-xl font-semibold mb-2">Invoice Preview</h2>
+      <div id="invoiceOutput" class="bg-softblue p-4 rounded border text-sm md:text-base overflow-x-auto">
+        <table id="invoiceTable" class="w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="border px-2 py-1">Item</th>
+              <th class="border px-2 py-1">Quantity</th>
+              <th class="border px-2 py-1">Unit</th>
+              <th class="border px-2 py-1">Unit Price</th>
+              <th class="border px-2 py-1">Total</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceBody"></tbody>
+        </table>
+        <div class="mt-2 text-right">
+          <p id="subtotal"></p>
+          <p id="taxAmount"></p>
+          <p id="grandTotal" class="font-bold"></p>
+        </div>
+      </div>
 
-  <div class="totals">
-    <p><strong>Subtotal:</strong> KES <span id="subtotal">0.00</span></p>
-    <label>Tax (%)</label>
-    <input type="number" id="taxRate" value="0" onchange="updateTotals()">
-    <p><strong>Total:</strong> KES <span id="total">0.00</span></p>
+      <div class="mt-4 flex gap-4">
+        <button id="downloadPDF" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Download PDF</button>
+        <button id="downloadExcel" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Download Excel</button>
+      </div>
+    </div>
   </div>
 
-  <button class="btn" onclick="downloadExcel()">Download Excel Invoice</button>
-</div>
+  <script>
+    let items = [];
 
-<script>
-let table = document.querySelector('#itemsTable tbody');
+    function addItem() {
+      const container = document.getElementById('itemsContainer');
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="flex gap-2">
+          <input type="text" placeholder="Item" class="item-name border p-2 w-full rounded">
+          <input type="number" placeholder="Qty" class="item-qty border p-2 w-20 rounded">
+          <input type="text" placeholder="Unit" class="item-unit border p-2 w-24 rounded">
+          <input type="number" placeholder="Price" class="item-price border p-2 w-24 rounded">
+        </div>`;
+      container.appendChild(div);
+    }
 
-function addItem() {
-  let row = table.insertRow();
-  row.innerHTML = `
-    <td><input type="text" class="desc" placeholder="e.g. 2kg Chocolate Cake"></td>
-    <td><input type="number" class="price" value="0" oninput="updateTotals()"></td>
-    <td><input type="number" class="qty" value="1" oninput="updateTotals()"></td>
-    <td class="lineTotal">0.00</td>
-    <td><button onclick="removeItem(this)">X</button></td>
-  `;
-  updateTotals();
-}
+    function saveToLocalStorage() {
+      const data = {
+        businessName: document.getElementById('businessName').value,
+        customerName: document.getElementById('customerName').value,
+        customerContact: document.getElementById('customerContact').value,
+        invoiceNumber: document.getElementById('invoiceNumber').value,
+        invoiceDate: document.getElementById('invoiceDate').value,
+        tax: document.getElementById('tax').value,
+        items: items,
+        isPremium: document.getElementById('premiumToggle').checked
+      };
+      localStorage.setItem('quickbill-data', JSON.stringify(data));
+    }
 
-function removeItem(btn) {
-  let row = btn.parentElement.parentElement;
-  row.remove();
-  updateTotals();
-}
+    function loadFromLocalStorage() {
+      const saved = localStorage.getItem('quickbill-data');
+      if (!saved) return;
+      const data = JSON.parse(saved);
+      document.getElementById('businessName').value = data.businessName || '';
+      document.getElementById('customerName').value = data.customerName || '';
+      document.getElementById('customerContact').value = data.customerContact || '';
+      document.getElementById('invoiceNumber').value = data.invoiceNumber || '';
+      document.getElementById('invoiceDate').value = data.invoiceDate || '';
+      document.getElementById('tax').value = data.tax || '';
+      document.getElementById('premiumToggle').checked = data.isPremium || false;
+      data.items?.forEach(i => {
+        addItem();
+        const last = document.querySelectorAll('#itemsContainer > div');
+        const inputs = last[last.length - 1].querySelectorAll('input');
+        inputs[0].value = i.name;
+        inputs[1].value = i.quantity;
+        inputs[2].value = i.unit;
+        inputs[3].value = i.price;
+      });
+    }
 
-function updateTotals() {
-  let rows = table.querySelectorAll('tr');
-  let subtotal = 0;
-  rows.forEach(row => {
-    let price = parseFloat(row.querySelector('.price').value) || 0;
-    let qty = parseFloat(row.querySelector('.qty').value) || 0;
-    let lineTotal = price * qty;
-    row.querySelector('.lineTotal').textContent = lineTotal.toFixed(2);
-    subtotal += lineTotal;
-  });
+    function generateInvoice() {
+      const names = document.querySelectorAll('.item-name');
+      const qtys = document.querySelectorAll('.item-qty');
+      const units = document.querySelectorAll('.item-unit');
+      const prices = document.querySelectorAll('.item-price');
+      const tbody = document.getElementById('invoiceBody');
+      tbody.innerHTML = '';
+      items = [];
 
-  document.getElementById('subtotal').textContent = subtotal.toFixed(2);
-  let taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
-  let total = subtotal + (subtotal * (taxRate / 100));
-  document.getElementById('total').textContent = total.toFixed(2);
-}
+      let subtotal = 0;
 
-function downloadExcel() {
-  let businessName = document.getElementById('businessName').value;
-  let clientName = document.getElementById('clientName').value;
-  let clientNotes = document.getElementById('clientNotes').value;
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i].value;
+        const qty = parseFloat(qtys[i].value) || 0;
+        const unit = units[i].value;
+        const price = parseFloat(prices[i].value) || 0;
+        const total = qty * price;
+        items.push({ name, quantity: qty, unit, price, total });
+        subtotal += total;
+        const row = `<tr>
+            <td class="border px-2 py-1">${name}</td>
+            <td class="border px-2 py-1">${qty}</td>
+            <td class="border px-2 py-1">${unit}</td>
+            <td class="border px-2 py-1">${price}</td>
+            <td class="border px-2 py-1">${total.toFixed(2)}</td>
+          </tr>`;
+        tbody.innerHTML += row;
+      }
 
-  let wb = XLSX.utils.book_new();
-  let data = [
-    ["Business Name", businessName],
-    ["Client Name", clientName],
-    ["Notes", clientNotes],
-    [],
-    ["Description", "Unit Price", "Quantity", "Total"]
-  ];
+      const taxRate = parseFloat(document.getElementById('tax').value) || 0;
+      const taxAmount = subtotal * (taxRate / 100);
+      const grandTotal = subtotal + taxAmount;
 
-  let rows = table.querySelectorAll('tr');
-  rows.forEach(row => {
-    let desc = row.querySelector('.desc').value;
-    let price = row.querySelector('.price').value;
-    let qty = row.querySelector('.qty').value;
-    let total = (parseFloat(price) * parseFloat(qty)).toFixed(2);
-    data.push([desc, price, qty, total]);
-  });
+      document.getElementById('subtotal').innerText = `Subtotal: ${subtotal.toFixed(2)}`;
+      document.getElementById('taxAmount').innerText = `Tax (${taxRate}%): ${taxAmount.toFixed(2)}`;
+      document.getElementById('grandTotal').innerText = `Total: ${grandTotal.toFixed(2)}`;
 
-  data.push([]);
-  data.push(["Subtotal", document.getElementById('subtotal').textContent]);
-  data.push(["Tax Rate (%)", document.getElementById('taxRate').value]);
-  data.push(["Total", document.getElementById('total').textContent]);
+      if (document.getElementById('rememberToggle').checked) {
+        saveToLocalStorage();
+      }
 
-  let ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "Invoice");
-  XLSX.writeFile(wb, `Invoice_${clientName || 'Client'}.xlsx`);
-}
-</script>
+      return { subtotal, taxAmount, grandTotal };
+    }
 
-<!-- SheetJS for Excel download -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    setInterval(generateInvoice, 1000);
+    window.onload = loadFromLocalStorage;
+
+    document.getElementById('downloadPDF').addEventListener('click', () => {
+      if (!document.getElementById('premiumToggle').checked) {
+        alert('PDF export is available for premium users only. Please upgrade to premium.');
+        return;
+      }
+      
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      doc.html(document.getElementById('invoiceOutput'), {
+        callback: function (doc) {
+          doc.save('invoice.pdf');
+        },
+        x: 20,
+        y: 20
+      });
+    });
+
+    document.getElementById('downloadExcel').addEventListener('click', () => {
+      const invoiceData = generateInvoice();
+      const wb = XLSX.utils.book_new();
+      const ws_data = [
+        ['Item', 'Quantity', 'Unit', 'Price per Unit', 'Total'],
+        ...items.map(item => [item.name, item.quantity, item.unit, item.price, item.total]),
+        [],
+        ['Subtotal:', '', '', '', invoiceData.subtotal.toFixed(2)],
+        [`Tax (${document.getElementById('tax').value || 0}%):`, '', '', '', invoiceData.taxAmount.toFixed(2)],
+        ['Total:', '', '', '', invoiceData.grandTotal.toFixed(2)]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
+      XLSX.writeFile(wb, 'invoice.xlsx');
+    });
+  </script>
 </body>
 </html>
