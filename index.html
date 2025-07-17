@@ -3,214 +3,114 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quick Bill - Invoice Maker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Quick Bill</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Poppins', 'sans-serif'],
-          },
-          colors: {
-            softblue: '#eaf4fc',
-            softgreen: '#e6f4ea',
-            softyellow: '#fffbe6'
-          }
-        },
-      },
-      darkMode: 'class',
-    };
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    .bg-pattern {
-      background: linear-gradient(to right, #eaf4fc, #e6f4ea);
-    }
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 1em; }
+    table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }
+    input { width: 100px; }
+    .btn { padding: 10px 15px; margin: 5px; cursor: pointer; }
   </style>
 </head>
-<body class="font-sans bg-pattern min-h-screen p-4">
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-4 text-center">Quick Bill - Invoice Maker</h1>
+<body>
 
-    <div class="space-y-4">
-      <input id="customerName" type="text" placeholder="Customer Name" class="w-full border p-2 rounded" />
-      <input id="customerContact" type="text" placeholder="Customer Contact" class="w-full border p-2 rounded" />
-      <input id="companyLogo" type="file" accept="image/*" class="w-full border p-2 rounded" disabled />
-    </div>
-
-    <div class="mt-4">
-      <input id="invoiceNumber" type="text" placeholder="Invoice Number" class="w-full border p-2 rounded" />
-      <input id="invoiceDate" type="date" class="w-full border p-2 rounded" />
-    </div>
-
-    <div class="mt-4">
-      <label class="inline-flex items-center">
-        <input id="rememberToggle" type="checkbox" class="mr-2" /> Remember my invoice data
-      </label>
-      <label class="inline-flex items-center ml-6">
-        <input id="premiumToggle" type="checkbox" class="mr-2" /> I am a Premium User
-      </label>
-    </div>
-
-    <div class="mt-6">
-      <h2 class="text-lg font-semibold mb-2">Add Items</h2>
-      <div id="itemsContainer" class="space-y-2"></div>
-      <button onclick="addItem()" class="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600">+ Add Item</button>
-    </div>
-
-    <div class="mt-6">
-      <label for="tax" class="block font-semibold">Tax (%)</label>
-      <input id="tax" type="number" class="w-full border p-2 rounded" placeholder="Leave blank if not applicable">
-    </div>
-
-    <div class="mt-6">
-      <h2 class="text-xl font-semibold mb-2">Invoice Preview</h2>
-      <div id="invoiceOutput" class="bg-softblue p-4 rounded border text-sm md:text-base overflow-x-auto">
-        <table id="invoiceTable" class="w-full border-collapse">
-          <thead>
-            <tr class="bg-gray-200">
-              <th class="border px-2 py-1">Item</th>
-              <th class="border px-2 py-1">Quantity</th>
-              <th class="border px-2 py-1">Unit</th>
-              <th class="border px-2 py-1">Unit Price</th>
-              <th class="border px-2 py-1">Total</th>
-            </tr>
-          </thead>
-          <tbody id="invoiceBody"></tbody>
-        </table>
-        <div class="mt-2 text-right">
-          <p id="subtotal"></p>
-          <p id="taxAmount"></p>
-          <p id="grandTotal" class="font-bold"></p>
-        </div>
-      </div>
-
-      <div class="mt-4 flex gap-4">
-        <button id="downloadPDF" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Download PDF</button>
-        <button id="downloadExcel" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Download Excel</button>
-      </div>
-    </div>
-  </div>
+  <h1>Quick Bill - Invoice Generator</h1>
+  
+  <table id="invoiceTable">
+    <thead>
+      <tr>
+        <th>Item</th><th>Qty</th><th>Price</th><th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="invoiceBody">
+      <tr>
+        <td><input type="text" value="Item 1" /></td>
+        <td><input type="number" value="1" /></td>
+        <td><input type="number" value="100" /></td>
+        <td class="item-total">100</td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <button class="btn" onclick="addRow()">+ Add Item</button>
+  
+  <h3>Tax (%): <input id="taxInput" type="number" value="16" /></h3>
+  
+  <h3>Subtotal: <span id="subtotal">0</span></h3>
+  <h3>Total (with tax): <span id="totalWithTax">0</span></h3>
+  
+  <button class="btn" onclick="calculateTotals()">Recalculate</button>
+  <button class="btn" onclick="downloadExcel()">Download Excel</button>
+  <button class="btn" onclick="downloadPDF()">Download PDF</button>
 
   <script>
-    let items = [];
-
-    function addItem() {
-      const container = document.getElementById('itemsContainer');
-      const div = document.createElement('div');
-      div.innerHTML = `
-        <div class="flex gap-2">
-          <input type="text" placeholder="Item" class="item-name border p-2 w-full rounded">
-          <input type="number" placeholder="Qty" class="item-qty border p-2 w-20 rounded">
-          <input type="text" placeholder="Unit" class="item-unit border p-2 w-24 rounded">
-          <input type="number" placeholder="Price" class="item-price border p-2 w-24 rounded">
-        </div>`;
-      container.appendChild(div);
+    function addRow() {
+      const table = document.getElementById("invoiceBody");
+      const row = table.insertRow();
+      row.innerHTML = `
+        <td><input type="text" /></td>
+        <td><input type="number" value="1" /></td>
+        <td><input type="number" value="0" /></td>
+        <td class="item-total">0</td>
+      `;
     }
 
-    function saveToLocalStorage() {
-      const data = {
-        customerName: document.getElementById('customerName').value,
-        customerContact: document.getElementById('customerContact').value,
-        invoiceNumber: document.getElementById('invoiceNumber').value,
-        invoiceDate: document.getElementById('invoiceDate').value,
-        tax: document.getElementById('tax').value,
-        items: items,
-        isPremium: document.getElementById('premiumToggle').checked
-      };
-      localStorage.setItem('quickbill-data', JSON.stringify(data));
-    }
-
-    function loadFromLocalStorage() {
-      const saved = localStorage.getItem('quickbill-data');
-      if (!saved) return;
-      const data = JSON.parse(saved);
-      document.getElementById('customerName').value = data.customerName || '';
-      document.getElementById('customerContact').value = data.customerContact || '';
-      document.getElementById('invoiceNumber').value = data.invoiceNumber || '';
-      document.getElementById('invoiceDate').value = data.invoiceDate || '';
-      document.getElementById('tax').value = data.tax || '';
-      document.getElementById('premiumToggle').checked = data.isPremium || false;
-      data.items?.forEach(i => {
-        addItem();
-        const last = document.querySelectorAll('#itemsContainer > div');
-        const inputs = last[last.length - 1].querySelectorAll('input');
-        inputs[0].value = i.name;
-        inputs[1].value = i.quantity;
-        inputs[2].value = i.unit;
-        inputs[3].value = i.price;
-      });
-    }
-
-    function generateInvoice() {
-      const names = document.querySelectorAll('.item-name');
-      const qtys = document.querySelectorAll('.item-qty');
-      const units = document.querySelectorAll('.item-unit');
-      const prices = document.querySelectorAll('.item-price');
-      const tbody = document.getElementById('invoiceBody');
-      tbody.innerHTML = '';
-      items = [];
-
+    function calculateTotals() {
+      const rows = document.querySelectorAll("#invoiceBody tr");
       let subtotal = 0;
-
-      for (let i = 0; i < names.length; i++) {
-        const name = names[i].value;
-        const qty = parseFloat(qtys[i].value) || 0;
-        const unit = units[i].value;
-        const price = parseFloat(prices[i].value) || 0;
+      rows.forEach(row => {
+        const qty = parseFloat(row.cells[1].querySelector("input").value) || 0;
+        const price = parseFloat(row.cells[2].querySelector("input").value) || 0;
         const total = qty * price;
-        items.push({ name, quantity: qty, unit, price, total });
+        row.cells[3].textContent = total.toFixed(2);
         subtotal += total;
-        const row = `<tr>
-            <td class="border px-2 py-1">${name}</td>
-            <td class="border px-2 py-1">${qty}</td>
-            <td class="border px-2 py-1">${unit}</td>
-            <td class="border px-2 py-1">${price}</td>
-            <td class="border px-2 py-1">${total.toFixed(2)}</td>
-          </tr>`;
-        tbody.innerHTML += row;
-      }
+      });
 
-      const taxRate = parseFloat(document.getElementById('tax').value) || 0;
-      const taxAmount = subtotal * (taxRate / 100);
-      const grandTotal = subtotal + taxAmount;
+      const taxRate = parseFloat(document.getElementById("taxInput").value) || 0;
+      const totalWithTax = subtotal + (subtotal * taxRate / 100);
 
-      document.getElementById('subtotal').innerText = `Subtotal: ${subtotal.toFixed(2)}`;
-      document.getElementById('taxAmount').innerText = `Tax (${taxRate}%): ${taxAmount.toFixed(2)}`;
-      document.getElementById('grandTotal').innerText = `Total: ${grandTotal.toFixed(2)}`;
-
-      if (document.getElementById('rememberToggle').checked) {
-        saveToLocalStorage();
-      }
+      document.getElementById("subtotal").textContent = subtotal.toFixed(2);
+      document.getElementById("totalWithTax").textContent = totalWithTax.toFixed(2);
     }
 
-    setInterval(generateInvoice, 1000);
-    window.onload = loadFromLocalStorage;
-
-    document.getElementById('downloadPDF').addEventListener('click', () => {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-      doc.html(document.getElementById('invoiceOutput'), {
-        callback: function (doc) {
-          doc.save('invoice.pdf');
-        },
-        x: 20,
-        y: 20
-      });
-    });
-
-    document.getElementById('downloadExcel').addEventListener('click', () => {
+    function downloadExcel() {
+      calculateTotals();
       const wb = XLSX.utils.book_new();
-      const ws_data = [
-        ['Item', 'Quantity', 'Unit', 'Price per Unit', 'Total'],
-        ...items.map(item => [item.name, item.quantity, item.unit, item.price, item.total])
-      ];
+      const ws_data = [["Item", "Qty", "Price", "Total"]];
+      document.querySelectorAll("#invoiceBody tr").forEach(row => {
+        const item = row.cells[0].querySelector("input").value;
+        const qty = row.cells[1].querySelector("input").value;
+        const price = row.cells[2].querySelector("input").value;
+        const total = row.cells[3].textContent;
+        ws_data.push([item, qty, price, total]);
+      });
+      const subtotal = document.getElementById("subtotal").textContent;
+      const totalWithTax = document.getElementById("totalWithTax").textContent;
+      ws_data.push(["", "", "Subtotal", subtotal]);
+      ws_data.push(["", "", "Total (with Tax)", totalWithTax]);
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
-      XLSX.utils.book_append_sheet(wb, ws, 'Invoice');
-      XLSX.writeFile(wb, 'invoice.xlsx');
-    });
+      XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+      XLSX.writeFile(wb, "QuickBill_Invoice.xlsx");
+    }
+
+    async function downloadPDF() {
+      calculateTotals();
+      const pdf = new jspdf.jsPDF();
+      const invoiceArea = document.body;
+      await html2canvas(invoiceArea).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save("QuickBill_Invoice.pdf");
+      });
+    }
+
+    calculateTotals();
   </script>
+
 </body>
 </html>
