@@ -1,129 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QuickBill Invoice Generator</title>
+  <meta charset="UTF-8">
+  <title>QuickBill - Invoice Generator</title>
   <style>
     body {
-      background-color: #e6f0ff;
       font-family: Arial, sans-serif;
+      background-color: #e6f0ff;
       padding: 20px;
+      color: #333;
     }
-    .container {
-      max-width: 900px;
-      margin: auto;
+    h1 {
+      color: #003366;
+    }
+    .invoice-container {
       background: white;
       padding: 20px;
-      border-radius: 8px;
+      border-radius: 12px;
+      max-width: 900px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    input, textarea, select {
-      width: 100%;
-      margin-bottom: 10px;
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, textarea {
       padding: 8px;
-      border-radius: 4px;
+      width: 100%;
+      margin-top: 4px;
+      box-sizing: border-box;
       border: 1px solid #ccc;
+      border-radius: 6px;
     }
-    .section {
+    table {
+      width: 100%;
       margin-top: 20px;
+      border-collapse: collapse;
     }
-    #invoicePreview {
-      margin-top: 20px;
-      padding: 10px;
-      border: 1px dashed #666;
-      background: #f9f9f9;
+    th, td {
+      border: 1px solid #aaa;
+      padding: 8px;
+      text-align: center;
     }
-    #logoPreview img {
-      max-width: 150px;
+    th {
+      background: #cce0ff;
     }
     .btn {
-      padding: 10px 15px;
-      margin-right: 10px;
-      background-color: #007bff;
+      background: #007bff;
       color: white;
+      padding: 10px 16px;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
+      margin-top: 20px;
       cursor: pointer;
     }
-    .btn-secondary {
-      background-color: #28a745;
+    .btn:hover {
+      background: #0056b3;
+    }
+    .totals {
+      margin-top: 20px;
+      text-align: right;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>QuickBill Invoice Generator</h1>
-    <div class="section">
-      <h3>Business Details</h3>
-      <input type="text" id="bizName" placeholder="Business Name">
-      <input type="text" id="kraPin" placeholder="KRA PIN (Optional)">
-      <input type="file" id="logoUpload">
-      <div id="logoPreview"></div>
-    </div>
 
-    <div class="section">
-      <h3>Customer Details</h3>
-      <input type="text" id="custName" placeholder="Customer Name">
-      <input type="text" id="custEmail" placeholder="Customer Email">
-      <input type="text" id="custPhone" placeholder="Customer Phone">
-    </div>
+<div class="invoice-container">
+  <h1>QuickBill Invoice Generator</h1>
 
-    <div class="section">
-      <h3>Invoice Items</h3>
-      <textarea id="items" placeholder="Item name, quantity, unit price\nExample:\nApples,2,100\nBananas,5,60"></textarea>
-      <input type="number" id="taxRate" placeholder="Tax Rate (e.g. 16 for 16%)">
-      <button class="btn" onclick="generateInvoice()">Preview Invoice</button>
-    </div>
+  <label>Your Business Name</label>
+  <input id="businessName" placeholder="e.g. Sweet Treats Bakery">
 
-    <div id="invoicePreview"></div>
+  <label>Client Name</label>
+  <input id="clientName" placeholder="e.g. Sarah Wanjiku">
 
-    <div class="section">
-      <button class="btn" onclick="exportExcel()">Download Excel (Free)</button>
-      <button class="btn btn-secondary" onclick="exportPDF()">Download PDF (Premium Only)</button>
-    </div>
+  <label>Client Contact / Notes</label>
+  <textarea id="clientNotes" rows="2" placeholder="e.g. Wedding on Aug 20th, contact 0722...."></textarea>
+
+  <table id="itemsTable">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Unit Price (KES)</th>
+        <th>Quantity</th>
+        <th>Total</th>
+        <th>Remove</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button class="btn" onclick="addItem()">+ Add Item</button>
+
+  <div class="totals">
+    <p><strong>Subtotal:</strong> KES <span id="subtotal">0.00</span></p>
+    <label>Tax (%)</label>
+    <input type="number" id="taxRate" value="0" onchange="updateTotals()">
+    <p><strong>Total:</strong> KES <span id="total">0.00</span></p>
   </div>
 
-  <script>
-    let logoData = '';
-    document.getElementById('logoUpload').addEventListener('change', function(e) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        logoData = e.target.result;
-        document.getElementById('logoPreview').innerHTML = `<img src="${logoData}" alt="Logo">`;
-      }
-      reader.readAsDataURL(e.target.files[0]);
-    });
+  <button class="btn" onclick="downloadExcel()">Download Excel Invoice</button>
+</div>
 
-    function generateInvoice() {
-      const items = document.getElementById('items').value.trim().split('\n');
-      const tax = parseFloat(document.getElementById('taxRate').value) || 0;
-      let html = `<div>${logoData ? `<img src='${logoData}' alt='Logo'><br>` : ''}`;
-      html += `<strong>${document.getElementById('bizName').value}</strong><br>`;
-      html += `KRA PIN: ${document.getElementById('kraPin').value}<br><br>`;
+<script>
+let table = document.querySelector('#itemsTable tbody');
 
-      html += `<strong>Bill To:</strong><br>${document.getElementById('custName').value}<br>${document.getElementById('custEmail').value}<br>${document.getElementById('custPhone').value}<br><br>`;
+function addItem() {
+  let row = table.insertRow();
+  row.innerHTML = `
+    <td><input type="text" class="desc" placeholder="e.g. 2kg Chocolate Cake"></td>
+    <td><input type="number" class="price" value="0" oninput="updateTotals()"></td>
+    <td><input type="number" class="qty" value="1" oninput="updateTotals()"></td>
+    <td class="lineTotal">0.00</td>
+    <td><button onclick="removeItem(this)">X</button></td>
+  `;
+  updateTotals();
+}
 
-      html += `<table border='1' width='100%' cellpadding='5'><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr>`;
-      let subtotal = 0;
-      items.forEach(row => {
-        const [item, qty, price] = row.split(',');
-        const lineTotal = parseFloat(qty) * parseFloat(price);
-        subtotal += lineTotal;
-        html += `<tr><td>${item}</td><td>${qty}</td><td>${price}</td><td>${lineTotal}</td></tr>`;
-      });
-      const taxAmt = (subtotal * tax) / 100;
-      const total = subtotal + taxAmt;
-      html += `</table><br><strong>Subtotal:</strong> ${subtotal}<br><strong>Tax (${tax}%):</strong> ${taxAmt}<br><strong>Total:</strong> ${total}</div>`;
-      document.getElementById('invoicePreview').innerHTML = html;
-    }
+function removeItem(btn) {
+  let row = btn.parentElement.parentElement;
+  row.remove();
+  updateTotals();
+}
 
-    function exportExcel() {
-      alert("Excel export includes watermark and totals. Feature coming in .zip version.");
-    }
+function updateTotals() {
+  let rows = table.querySelectorAll('tr');
+  let subtotal = 0;
+  rows.forEach(row => {
+    let price = parseFloat(row.querySelector('.price').value) || 0;
+    let qty = parseFloat(row.querySelector('.qty').value) || 0;
+    let lineTotal = price * qty;
+    row.querySelector('.lineTotal').textContent = lineTotal.toFixed(2);
+    subtotal += lineTotal;
+  });
 
-    function exportPDF() {
-      alert("PDF export available for premium users only.");
-    }
-  </script>
+  document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+  let taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+  let total = subtotal + (subtotal * (taxRate / 100));
+  document.getElementById('total').textContent = total.toFixed(2);
+}
+
+function downloadExcel() {
+  let businessName = document.getElementById('businessName').value;
+  let clientName = document.getElementById('clientName').value;
+  let clientNotes = document.getElementById('clientNotes').value;
+
+  let wb = XLSX.utils.book_new();
+  let data = [
+    ["Business Name", businessName],
+    ["Client Name", clientName],
+    ["Notes", clientNotes],
+    [],
+    ["Description", "Unit Price", "Quantity", "Total"]
+  ];
+
+  let rows = table.querySelectorAll('tr');
+  rows.forEach(row => {
+    let desc = row.querySelector('.desc').value;
+    let price = row.querySelector('.price').value;
+    let qty = row.querySelector('.qty').value;
+    let total = (parseFloat(price) * parseFloat(qty)).toFixed(2);
+    data.push([desc, price, qty, total]);
+  });
+
+  data.push([]);
+  data.push(["Subtotal", document.getElementById('subtotal').textContent]);
+  data.push(["Tax Rate (%)", document.getElementById('taxRate').value]);
+  data.push(["Total", document.getElementById('total').textContent]);
+
+  let ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Invoice");
+  XLSX.writeFile(wb, `Invoice_${clientName || 'Client'}.xlsx`);
+}
+</script>
+
+<!-- SheetJS for Excel download -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </body>
 </html>
